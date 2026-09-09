@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - WhatsApp Gateway</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans selection:bg-emerald-500 selection:text-white">
+
+  <!-- Background Decorative Elements -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl"></div>
+  </div>
+
+  <div class="w-full max-w-md">
+    
+    <!-- Header Logo & Title -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-2xl text-white shadow-xl shadow-emerald-500/30 mb-4">
+        <i class="fa-brands fa-whatsapp text-3xl"></i>
+      </div>
+      <h1 class="text-2xl font-extrabold text-white tracking-tight">WhatsApp Gateway</h1>
+      <p class="text-sm text-gray-400 mt-1">Masuk untuk mengelola gateway & sesi WhatsApp</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="bg-gray-900 border border-gray-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl">
+      
+      <!-- Error Alert -->
+      <div id="error-box" class="hidden mb-5 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center space-x-3">
+        <i class="fa-solid fa-circle-exclamation flex-shrink-0 text-base"></i>
+        <span id="error-message">Username atau password salah.</span>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="space-y-5">
+        
+        <!-- Username Field -->
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1.5">Username</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-500">
+              <i class="fa-solid fa-user text-sm"></i>
+            </div>
+            <input type="text" id="username" required autofocus placeholder="Masukkan username" class="w-full pl-10 pr-4 py-3 bg-gray-950/80 border border-gray-700/80 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition text-sm">
+          </div>
+        </div>
+
+        <!-- Password Field -->
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-500">
+              <i class="fa-solid fa-lock text-sm"></i>
+            </div>
+            <input type="password" id="password" required placeholder="Masukkan password" class="w-full pl-10 pr-11 py-3 bg-gray-950/80 border border-gray-700/80 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition text-sm">
+            <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-500 hover:text-gray-300 transition">
+              <i id="toggle-pwd-icon" class="fa-solid fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="btn-login" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-gray-950 font-bold rounded-xl shadow-lg shadow-emerald-500/25 transition duration-200 flex items-center justify-center space-x-2 text-sm mt-2">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          <span>Masuk ke Dashboard</span>
+        </button>
+
+      </form>
+
+      <!-- Default Credential Notice -->
+      <div class="mt-6 pt-5 border-t border-gray-800/80 text-center">
+        <p class="text-xs text-gray-400">
+          Akun Default: <span class="text-emerald-400 font-mono font-semibold">admin</span> / <span class="text-emerald-400 font-mono font-semibold">admin123</span>
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <p class="text-center text-xs text-gray-400 mt-8">
+      &copy; WhatsApp Gateway. Powered by Baileys & Node.js
+    </p>
+
+  </div>
+
+  <script>
+    // Check if already logged in
+    const token = localStorage.getItem('wa_token');
+    if (token) {
+      // Validate token with server
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status) {
+          window.location.href = '/index.html';
+        }
+      })
+      .catch(() => {});
+    }
+
+    function togglePasswordVisibility() {
+      const pwdInput = document.getElementById('password');
+      const pwdIcon = document.getElementById('toggle-pwd-icon');
+      if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        pwdIcon.className = 'fa-solid fa-eye-slash text-sm';
+      } else {
+        pwdInput.type = 'password';
+        pwdIcon.className = 'fa-solid fa-eye text-sm';
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('btn-login');
+      const errorBox = document.getElementById('error-box');
+      const errorMessage = document.getElementById('error-message');
+
+      errorBox.classList.add('hidden');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Memproses...</span>';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (data.status && data.token) {
+          localStorage.setItem('wa_token', data.token);
+          localStorage.setItem('wa_user', JSON.stringify(data.user));
+          window.location.href = '/index.html';
+        } else {
+          errorMessage.innerText = data.message || 'Gagal login. Periksa username dan password Anda.';
+          errorBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorMessage.innerText = 'Terjadi kesalahan server: ' + err.message;
+        errorBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i><span>Masuk ke Dashboard</span>';
+      }
+    }
+  </script>
+</body>
+</html>

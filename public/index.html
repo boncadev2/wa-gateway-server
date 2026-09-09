@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Gateway Dashboard</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Socket.io Client -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    // Quick Auth Check before render
+    const token = localStorage.getItem('wa_token');
+    if (!token) {
+      window.location.replace('/login.html');
+    }
+  </script>
+
+  <style>
+    .tab-active {
+      border-bottom: 3px solid #10B981;
+      color: #10B981;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Header / Navigation Navbar -->
+  <header class="bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Logo / Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+            <i class="fa-brands fa-whatsapp text-2xl"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-white tracking-wide">WA Gateway</h1>
+            <p class="text-xs text-gray-400">REST API & Session Manager</p>
+          </div>
+        </div>
+
+        <!-- Connection Status Badge & User Controls -->
+        <div class="flex items-center space-x-3">
+          <div id="status-badge" class="px-3 py-1 rounded-full text-xs font-semibold flex items-center space-x-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+            <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+            <span id="status-text">MEMERIKSA STATUS...</span>
+          </div>
+
+          <div id="user-info" class="hidden sm:flex items-center space-x-2 text-xs text-gray-300 bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-600">
+            <i class="fa-brands fa-whatsapp text-emerald-400"></i>
+            <span id="user-phone"></span>
+          </div>
+
+          <!-- Logged-in User Badge & Logout -->
+          <div class="flex items-center space-x-2 border-l border-gray-700 pl-3">
+            <div class="flex items-center space-x-2 bg-gray-900/80 px-3 py-1.5 rounded-xl border border-gray-700 text-xs">
+              <i class="fa-solid fa-circle-user text-emerald-400 text-sm"></i>
+              <span id="nav-username" class="font-semibold text-white">Admin</span>
+              <span id="nav-user-role" class="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">admin</span>
+            </div>
+            <button onclick="handleLogout()" title="Keluar / Logout" class="p-2 bg-gray-700 hover:bg-red-600 text-gray-300 hover:text-white rounded-xl transition text-xs flex items-center justify-center">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="bg-gray-800/60 border-b border-gray-700 backdrop-blur-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex space-x-6 sm:space-x-8 overflow-x-auto no-scrollbar">
+        <button onclick="switchTab('connection')" id="tab-connection" class="tab-btn tab-active py-4 px-2 text-sm flex items-center space-x-2 hover:text-emerald-400 transition whitespace-nowrap">
+          <i class="fa-solid fa-qrcode"></i>
+          <span>Koneksi Device</span>
+        </button>
+
+        <button onclick="switchTab('single-sender')" id="tab-single-sender" class="tab-btn py-4 px-2 text-sm flex items-center space-x-2 text-gray-400 hover:text-emerald-400 transition whitespace-nowrap">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>Kirim Pesan</span>
+        </button>
+
+        <button onclick="switchTab('bulk-sender')" id="tab-bulk-sender" class="tab-btn py-4 px-2 text-sm flex items-center space-x-2 text-gray-400 hover:text-emerald-400 transition whitespace-nowrap">
+          <i class="fa-solid fa-users text-sm"></i>
+          <span>Pesan Massal (Bulk)</span>
+        </button>
+
+        <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn py-4 px-2 text-sm flex items-center space-x-2 text-gray-400 hover:text-emerald-400 transition whitespace-nowrap">
+          <i class="fa-solid fa-list-check"></i>
+          <span>Riwayat Log</span>
+        </button>
+
+        <button onclick="switchTab('api-docs')" id="tab-api-docs" class="tab-btn py-4 px-2 text-sm flex items-center space-x-2 text-gray-400 hover:text-emerald-400 transition whitespace-nowrap">
+          <i class="fa-solid fa-code"></i>
+          <span>Dokumentasi API</span>
+        </button>
+
+        <button onclick="switchTab('users')" id="tab-users" class="tab-btn py-4 px-2 text-sm flex items-center space-x-2 text-gray-400 hover:text-emerald-400 transition whitespace-nowrap">
+          <i class="fa-solid fa-users-gear"></i>
+          <span>Manajemen User</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+
+    <!-- 1. Connection Section -->
+    <section id="sec-connection" class="space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- Connection Action Card -->
+        <div class="md:col-span-2 bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h2 class="text-xl font-bold text-white mb-1">Status Koneksi WhatsApp</h2>
+                <p class="text-sm text-gray-400">Pindai QR Code menggunakan aplikasi WhatsApp di ponsel Anda untuk menghubungkan perangkat.</p>
+                <div class="flex gap-2 mt-3">
+                  <select id="session-selector" onchange="selectSession(this.value)" class="px-3 py-2 bg-gray-900 border border-gray-700 rounded-xl text-sm text-white"></select>
+                  <button onclick="createSession()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm">+ Tambah HP</button>
+                  <button onclick="deleteSelectedSession()" class="px-3 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 rounded-xl text-sm">Hapus HP</button>
+                </div>
+              </div>
+              <button onclick="logoutSession()" id="btn-logout" class="hidden px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded-xl border border-red-500/30 text-sm font-medium transition flex items-center space-x-2">
+                <i class="fa-solid fa-power-off"></i>
+                <span>Putuskan Sesi</span>
+              </button>
+            </div>
+
+            <!-- QR Code Container -->
+            <div class="flex flex-col items-center justify-center my-6 p-6 bg-gray-900/60 rounded-xl border border-gray-700/80 min-h-[260px]">
+              
+              <!-- Loader -->
+              <div id="qr-loading" class="flex flex-col items-center space-y-3">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-emerald-400"></i>
+                <span class="text-sm text-gray-400">Memuat status koneksi WhatsApp...</span>
+                <button onclick="refreshQR()" class="mt-2 px-3.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl text-xs flex items-center space-x-1.5 border border-gray-700 transition shadow-sm">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                  <span>Generate Ulang QR Code</span>
+                </button>
+              </div>
+
+              <!-- QR Image -->
+              <div id="qr-wrapper" class="hidden flex flex-col items-center space-y-4">
+                <div class="p-3 bg-white rounded-2xl shadow-2xl">
+                  <img id="qr-image" src="" alt="WhatsApp QR Code" class="w-64 h-64 object-contain">
+                </div>
+                <div class="flex items-center space-x-3">
+                  <p class="text-xs text-emerald-400 animate-pulse flex items-center space-x-1">
+                    <i class="fa-solid fa-sync fa-spin"></i>
+                    <span>QR Code aktif. Pindai sebelum kedaluwarsa.</span>
+                  </p>
+                  <button onclick="refreshQR()" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-xs flex items-center space-x-1 border border-gray-700 transition" title="Refresh QR">
+                    <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+                    <span>Baru</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Connected View -->
+              <div id="connected-wrapper" class="hidden flex flex-col items-center space-y-3 text-center">
+                <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl border border-emerald-500/40">
+                  <i class="fa-solid fa-check"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-white">WhatsApp Terhubung!</h3>
+                <p class="text-sm text-gray-400 max-w-md">Gateway siap digunakan untuk mengirim dan menerima pesan via REST API & Web Dashboard.</p>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Pairing Code Option -->
+          <div class="border-t border-gray-700/60 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="text-xs text-gray-400">
+              Alternatif: Hubungkan dengan Kode Pairing Nomor HP
+            </div>
+            <div class="flex space-x-2 w-full sm:w-auto">
+              <input type="text" id="pairing-phone" placeholder="Contoh: 628123456789" class="px-3 py-2 bg-gray-900 border border-gray-700 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 w-full sm:w-48">
+              <button onclick="requestPairingCode()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition whitespace-nowrap">
+                Minta Kode
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- System Quick Stats -->
+        <div class="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl flex flex-col justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+              <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+              <span>Ringkasan Statistik</span>
+            </h2>
+
+            <div class="space-y-4">
+              <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-700">
+                <span class="text-xs text-gray-400 block mb-1">Total Pesan Terkirim</span>
+                <span id="stat-sent" class="text-2xl font-extrabold text-emerald-400">0</span>
+              </div>
+
+              <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-700">
+                <span class="text-xs text-gray-400 block mb-1">Pesan Diterima</span>
+                <span id="stat-received" class="text-2xl font-extrabold text-blue-400">0</span>
+              </div>
+
+              <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-700">
+                <span class="text-xs text-gray-400 block mb-1">Pesan Gagal</span>
+                <span id="stat-failed" class="text-2xl font-extrabold text-red-400">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-gray-700 text-xs text-gray-400 flex items-center justify-between">
+            <span>Engine: Baileys v6.x</span>
+            <span class="text-emerald-400 font-semibold">Ready</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Settings belong to the selected device/session. -->
+      <div class="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl">
+        <h2 class="text-lg font-bold text-white mb-1 flex items-center space-x-2">
+          <i class="fa-solid fa-key text-emerald-400"></i>
+          <span>API & Webhook Device</span>
+        </h2>
+        <p class="text-sm text-gray-400 mb-5">Pengaturan ini hanya berlaku untuk device yang dipilih di atas.</p>
+        <form onsubmit="handleSaveSettings(event)" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+            <div class="relative">
+              <input type="text" id="setting-api-key" required class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white pr-16 font-mono text-sm focus:outline-none focus:border-emerald-500">
+              <button type="button" onclick="generateApiKey()" class="absolute right-2 top-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 text-xs text-gray-300 rounded-lg">Random</button>
+            </div>
+            <span class="text-xs text-gray-500 mt-1 block">Gunakan bersama header <code class="text-emerald-400">x-session-id</code> pada aplikasi ini.</span>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL</label>
+            <input type="url" id="setting-webhook-url" placeholder="https://domain-anda.com/api/webhook" class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-emerald-500">
+            <span class="text-xs text-gray-500 mt-1 block">Pesan masuk pada device ini diteruskan ke URL tersebut.</span>
+          </div>
+          <div class="lg:col-span-2 flex justify-end">
+            <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition">Simpan Pengaturan Device</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- 2. Single Message Sender Section -->
+    <section id="sec-single-sender" class="hidden space-y-6">
+      <div class="max-w-2xl mx-auto bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl">
+        <h2 class="text-xl font-bold text-white mb-4 flex items-center space-x-2">
+          <i class="fa-solid fa-paper-plane text-emerald-400"></i>
+          <span>Kirim Pesan Tunggal</span>
+        </h2>
+
+        <form id="form-single-sender" onsubmit="handleSendSingle(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Nomor Tujuan / JID Group</label>
+            <input type="text" id="send-to" required placeholder="628123456789 atau 120363000000000000@g.us" class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+            <span class="text-xs text-gray-500 mt-1 block">Gunakan kode negara (misal 628... untuk Indonesia).</span>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Tipe Pesan</label>
+            <select id="send-type" onchange="toggleMediaType()" class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+              <option value="text">Teks Biasa</option>
+              <option value="media_file">Upload File Media (Gambar, Dokumen, Audio, Video)</option>
+              <option value="media_url">URL File Media</option>
+            </select>
+          </div>
+
+          <!-- File Upload Field -->
+          <div id="field-media-file" class="hidden">
+            <label class="block text-sm font-medium text-gray-300 mb-1">Pilih File</label>
+            <input type="file" id="send-file" class="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-xl text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500">
+          </div>
+
+          <!-- Media URL Field -->
+          <div id="field-media-url" class="hidden">
+            <label class="block text-sm font-medium text-gray-300 mb-1">URL Media Direct Link</label>
+            <input type="url" id="send-url" placeholder="https://example.com/image.jpg" class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Isi Pesan / Caption</label>
+            <textarea id="send-message" rows="4" required placeholder="Halo, ini pesan otomatis dari WA Gateway..." class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-emerald-500"></textarea>
+          </div>
+
+          <button type="submit" id="btn-send-single" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Kirim Pesan Sekarang</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 3. Bulk Broadcast Section -->
+    <section id="sec-bulk-sender" class="hidden space-y-6">
+      <div class="max-w-3xl mx-auto bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl">
+        <h2 class="text-xl font-bold text-white mb-4 flex items-center space-x-2">
+          <i class="fa-solid fa-users text-emerald-400"></i>
+          <span>Pengiriman Pesan Massal (Bulk Broadcast)</span>
+        </h2>
+
+        <form id="form-bulk-sender" onsubmit="handleSendBulk(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Daftar Nomor HP (Dipisahkan koma atau baris baru)</label>
+            <textarea id="bulk-numbers" rows="5" required placeholder="628123456781&#10;628123456782&#10;628123456783" class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 font-mono text-sm"></textarea>
+            <span class="text-xs text-gray-500 mt-1 block">Masukkan satu nomor per baris atau pisahkan dengan koma.</span>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Jeda Waktu Antar Pesan (Milidetik)</label>
+            <input type="number" id="bulk-delay" value="2000" min="500" step="500" class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+            <span class="text-xs text-gray-500 mt-1 block">Rekomendasi: Minimal 2000ms (2 detik) untuk mencegah nomor diblokir.</span>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Isi Pesan Broadcast</label>
+            <textarea id="bulk-message" rows="4" required placeholder="Pemberitahuan penting untuk seluruh pelanggan..." class="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-emerald-500"></textarea>
+          </div>
+
+          <button type="submit" id="btn-send-bulk" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-bullhorn"></i>
+            <span>Mulai Kirim Broadcast</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 4. Logs Section -->
+    <section id="sec-logs" class="hidden space-y-6">
+      <div class="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-list-check text-emerald-400"></i>
+            <span>Riwayat Log Pesan</span>
+          </h2>
+
+          <div class="flex space-x-3">
+            <button onclick="loadLogs()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl text-sm font-medium transition flex items-center space-x-2">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>Refresh Log</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-gray-700">
+          <table class="w-full text-left text-sm text-gray-300">
+            <thead class="bg-gray-900/80 text-gray-400 uppercase text-xs">
+              <tr>
+                <th class="px-4 py-3">Waktu</th>
+                <th class="px-4 py-3">Tipe</th>
+                <th class="px-4 py-3">Nomor Tujuan / Pengirim</th>
+                <th class="px-4 py-3">Isi Pesan</th>
+                <th class="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody" class="divide-y divide-gray-700/60 bg-gray-800/40">
+              <tr>
+                <td colspan="5" class="text-center py-8 text-gray-500">Memuat data log...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. API Documentation & Settings Section -->
+    <section id="sec-api-docs" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Code Examples / Documentation -->
+        <div class="lg:col-span-3 bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl space-y-4">
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-code text-emerald-400"></i>
+            <span>Dokumentasi Integration Endpoint REST API</span>
+          </h2>
+
+          <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 text-sm font-mono space-y-2">
+            <div class="text-emerald-400 font-bold">POST /api/send-text</div>
+            <div class="text-xs text-gray-400">Headers: <span class="text-white">x-api-key: YOUR_API_KEY</span></div>
+            <div class="text-xs text-gray-400">Body (JSON):</div>
+            <pre class="text-xs text-gray-300 bg-gray-950 p-3 rounded-lg overflow-x-auto">{
+  "to": "628123456789",
+  "message": "Halo dari WA Gateway!"
+}</pre>
+          </div>
+
+          <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 text-sm font-mono space-y-2">
+            <div class="text-blue-400 font-bold">cURL Example</div>
+            <pre class="text-xs text-emerald-300 bg-gray-950 p-3 rounded-lg overflow-x-auto">curl -X POST http://localhost:3000/api/send-text \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -d '{"to": "628123456789", "message": "Halo!"}'</pre>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 6. User Management Section -->
+    <section id="sec-users" class="hidden space-y-6">
+      <div class="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-users-gear text-emerald-400"></i>
+              <span>Manajemen Pengguna (User Management)</span>
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">Kelola hak akses pengguna dashboard dan operator gateway</p>
+          </div>
+
+          <button onclick="openModalAddUser()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-lg shadow-emerald-600/30">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Tambah Pengguna</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-gray-700">
+          <table class="w-full text-left text-sm text-gray-300">
+            <thead class="bg-gray-900/80 text-gray-400 uppercase text-xs">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">Nama Lengkap</th>
+                <th class="px-4 py-3">Username</th>
+                <th class="px-4 py-3">Role</th>
+                <th class="px-4 py-3">Tanggal Dibuat</th>
+                <th class="px-4 py-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody" class="divide-y divide-gray-700/60 bg-gray-800/40">
+              <tr>
+                <td colspan="6" class="text-center py-8 text-gray-500">Memuat data pengguna...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Tambah Pengguna Baru -->
+  <div id="modal-add-user" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-user-plus text-emerald-400"></i>
+          <span>Tambah Pengguna Baru</span>
+        </h3>
+        <button onclick="closeModalAddUser()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="form-add-user" onsubmit="handleAddUser(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Nama Lengkap</label>
+          <input type="text" id="add-user-name" required placeholder="Contoh: Budi Santoso" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Username</label>
+          <input type="text" id="add-user-username" required placeholder="Contoh: budi_operator" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Password</label>
+          <input type="password" id="add-user-password" required placeholder="Minimal 6 karakter" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Role / Peran</label>
+          <select id="add-user-role" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500">
+            <option value="operator">Operator (Kirim Pesan & Kelola)</option>
+            <option value="admin">Administrator (Akses Penuh)</option>
+          </select>
+        </div>
+
+        <div class="flex space-x-3 pt-3">
+          <button type="button" onclick="closeModalAddUser()" class="w-1/2 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-xl text-sm font-semibold transition">Batal</button>
+          <button type="submit" id="btn-save-new-user" class="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Pengguna -->
+  <div id="modal-edit-user" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-user-pen text-blue-400"></i>
+          <span>Edit Pengguna</span>
+        </h3>
+        <button onclick="closeModalEditUser()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="form-edit-user" onsubmit="handleSaveEditUser(event)" class="space-y-4">
+        <input type="hidden" id="edit-user-id">
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Nama Lengkap</label>
+          <input type="text" id="edit-user-name" required class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Ganti Password (Kosongkan jika tidak diubah)</label>
+          <input type="password" id="edit-user-password" placeholder="Password baru (opsional)" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Role / Peran</label>
+          <select id="edit-user-role" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500">
+            <option value="operator">Operator</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+
+        <div class="flex space-x-3 pt-3">
+          <button type="button" onclick="closeModalEditUser()" class="w-1/2 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-xl text-sm font-semibold transition">Batal</button>
+          <button type="submit" id="btn-save-edit-user" class="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 hidden px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-semibold transition-all duration-300 z-50"></div>
+
+  <!-- Custom JS -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

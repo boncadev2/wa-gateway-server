@@ -1,0 +1,37 @@
+{
+  "name": "wa-gateway",
+  "version": "1.0.0",
+  "description": "WhatsApp Gateway REST API & Web Dashboard built with Node.js and Baileys",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "gateway",
+    "baileys",
+    "rest-api",
+    "bot",
+    "webhook"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "axios": "^1.20.0",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.3.0",
+    "pino": "^10.3.1",
+    "pino-pretty": "^13.1.3",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.3",
+    "sqlite3": "^6.0.1"
+  }
+}
