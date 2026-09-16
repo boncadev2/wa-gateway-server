@@ -46,6 +46,23 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB max
 });
 
+// Local webhook receiver. Use http://YOUR_HOST:PORT/api/webhook when another
+// system needs to deliver events to this gateway, or for testing a webhook URL.
+router.post('/webhook', async (req, res) => {
+  try {
+    const payload = req.body || {};
+    await dbRun(
+      'INSERT INTO webhook_events (event, session_id, payload) VALUES (?, ?, ?)',
+      [payload.event || 'webhook.received', payload.session_id || payload.data?.session_id || null, JSON.stringify(payload)]
+    );
+    logger.info({ event: payload.event, sessionId: payload.session_id || payload.data?.session_id }, 'Webhook received');
+    return res.status(200).json({ status: true, message: 'Webhook diterima' });
+  } catch (err) {
+    logger.error({ err }, 'Failed to store incoming webhook');
+    return res.status(500).json({ status: false, message: 'Gagal menerima webhook' });
+  }
+});
+
 // 1. Status & Session Management (Public or Dashboard accessible)
 router.get('/status', (req, res) => {
   const sessionId = req.query.session_id || 'default';

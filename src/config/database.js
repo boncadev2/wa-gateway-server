@@ -66,6 +66,16 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS webhook_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event TEXT,
+      session_id TEXT,
+      payload TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Seed default admin (admin / admin123)
   const defaultAdminHash = '$2b$10$75m6yfQACzuIZp390bGLJO/rjsFcavRIPNhkZirRbmfQ2HslFLSYq';
   db.run(`
